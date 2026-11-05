@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Treino</title>
+<meta name="theme-color" content="#000000">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Treino">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--mu:#8a8a8a;--ln:#222}
+html{scroll-padding-top:env(safe-area-inset-top,0px);background:#000}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:#000;color:#fff;font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:520px;margin:0 auto;padding:20px 16px 56px}
+h1{font-size:22px;margin:0 0 16px}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--mu);margin:28px 0 10px;font-weight:600}
+button{font:inherit;cursor:pointer;color:#fff}
+input{width:100%;background:#000;color:#fff;border:1px solid #333;border-radius:10px;padding:12px;font:inherit;font-size:16px;outline:none}
+input:focus{border-color:#fff}
+input::placeholder{color:#666}
+.cal-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.cal-h b{text-transform:capitalize}
+.nav{background:none;border:1px solid #333;border-radius:10px;width:40px;height:40px;font-size:18px}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.wd{text-align:center;color:var(--mu);font-size:12px;padding:4px 0}
+.d{position:relative;aspect-ratio:1;background:none;border:1px solid transparent;border-radius:10px;font-size:15px;padding:0}
+.d.today{border-color:#555}
+.d.sel{background:#fff;color:#000;font-weight:700}
+.d.has::after{content:"";position:absolute;left:50%;bottom:5px;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;background:currentColor}
+.card{border:1px solid var(--ln);border-radius:12px;padding:12px 14px;margin-bottom:10px;background:#0a0a0a}
+.card-t{display:flex;justify-content:space-between;align-items:center;font-weight:700;margin-bottom:4px}
+.ln{color:#ddd;font-variant-numeric:tabular-nums}
+.x{background:none;border:0;color:#666;font-size:22px;line-height:1;padding:2px 6px}
+.mu{color:var(--mu)}
+.empty{color:var(--mu);margin:6px 0 14px}
+.srow{display:grid;grid-template-columns:34px 1fr 1fr 34px;gap:8px;align-items:center;margin-top:8px}
+.srow span{color:var(--mu);text-align:center}
+.btn{width:100%;border-radius:10px;padding:13px;font-weight:700;margin-top:10px}
+.sec{background:none;border:1px solid #333}
+.pri{background:#fff;color:#000;border:0}
+.hist{padding:10px 0;border-bottom:1px solid var(--ln)}
+.hist button{background:none;border:0;padding:0;font-weight:600;text-align:left}
+.hist div{font-size:14px;margin-top:2px}
+</style>
+</head>
+<body>
+<main>
+<h1>Meu treino</h1>
+<div class="cal-h"><button class="nav" id="prev" aria-label="Mês anterior">‹</button><b id="mt"></b><button class="nav" id="next" aria-label="Próximo mês">›</button></div>
+<div class="grid" id="cal"></div>
+
+<h2 id="dt"></h2>
+<div id="day"></div>
+
+<h2>Adicionar exercício</h2>
+<input id="n" list="ex" placeholder="Exercício (ex.: supino máquina)" autocomplete="off">
+<datalist id="ex"></datalist>
+<div id="rows"></div>
+<button class="btn sec" id="addrow">+ Série</button>
+<button class="btn pri" id="save">Salvar exercício</button>
+
+<h2>Histórico</h2>
+<div id="hist"></div>
+</main>
+<script>
+var KEY="treino:v2", items=[];
+try{items=JSON.parse(localStorage.getItem(KEY))||[]}catch(e){items=[]}
+try{ if(!items.length){var old=JSON.parse(localStorage.getItem("treino:v1"))||[];
+  items=old.map(function(o){var s=[];for(var i=0;i<o.sets;i++)s.push({r:o.reps,w:""});return{id:o.id,ts:o.ts,date:o.date,name:o.name,sets:s}})}}catch(e){}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(items))}catch(e){}}
+function pad(n){return String(n).padStart(2,"0")}
+function key(y,m,d){return y+"-"+pad(m+1)+"-"+pad(d)}
+function parse(k){var p=k.split("-");return new Date(+p[0],+p[1]-1,+p[2])}
+var now=new Date(), TODAY=key(now.getFullYear(),now.getMonth(),now.getDate());
+var sel=TODAY, vy=now.getFullYear(), vm=now.getMonth();
+var draft=[{r:"",w:""}];
+function el(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e}
+function fmt(s,i){return (i+1)+"x"+s.r+(s.w!==""&&s.w!=null?" "+s.w+"kg":"")}
+function label(k){var t=parse(k).toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"});return (k===TODAY?"Hoje · ":"")+t}
+
+function renderCal(){
+  document.getElementById("mt").textContent=new Date(vy,vm,1).toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
+  var g=document.getElementById("cal");g.innerHTML="";
+  ["D","S","T","Q","Q","S","S"].forEach(function(w){g.appendChild(el("div","wd",w))});
+  var first=new Date(vy,vm,1).getDay(), days=new Date(vy,vm+1,0).getDate();
+  var has={};items.forEach(function(i){has[i.date]=1});
+  for(var b=0;b<first;b++)g.appendChild(el("div"));
+  for(var d=1;d<=days;d++){(function(d){
+    var k=key(vy,vm,d),c="d"+(k===sel?" sel":"")+(k===TODAY?" today":"")+(has[k]?" has":"");
+    var btn=el("button",c,d);btn.onclick=function(){sel=k;render()};g.appendChild(btn);
+  })(d)}
+}
+function renderDay(){
+  document.getElementById("dt").textContent=label(sel);
+  var box=document.getElementById("day");box.innerHTML="";
+  var list=items.filter(function(i){return i.date===sel}).sort(function(a,b){return a.ts-b.ts});
+  if(!list.length){box.appendChild(el("p","empty","Nenhum exercício neste dia."));return}
+  list.forEach(function(it){
+    var c=el("div","card"),t=el("div","card-t");
+    t.appendChild(el("span",null,it.name));
+    var x=el("button","x","×");x.setAttribute("aria-label","Apagar");
+    x.onclick=function(){items=items.filter(function(i){return i.id!==it.id});save();render()};
+    t.appendChild(x);c.appendChild(t);
+    it.sets.forEach(function(s,i){c.appendChild(el("div","ln",fmt(s,i)))});
+    box.appendChild(c);
+  });
+}
+function renderRows(){
+  var box=document.getElementById("rows");box.innerHTML="";
+  draft.forEach(function(s,i){
+    var row=el("div","srow");
+    row.appendChild(el("span",null,(i+1)+"x"));
+    var r=el("input");r.type="number";r.inputMode="numeric";r.placeholder="Reps";r.value=s.r;
+    r.oninput=function(){s.r=r.value};
+    var w=el("input");w.type="number";w.inputMode="decimal";w.step="any";w.placeholder="kg";w.value=s.w;
+    w.oninput=function(){s.w=w.value};
+    row.appendChild(r);row.appendChild(w);
+    if(draft.length>1){var x=el("button","x","×");x.onclick=function(){draft.splice(i,1);renderRows()};row.appendChild(x)}
+    else row.appendChild(el("span"));
+    box.appendChild(row);
+  });
+}
+function renderHist(){
+  var box=document.getElementById("hist");box.innerHTML="";
+  var days={};items.forEach(function(i){(days[i.date]=days[i.date]||[]).push(i)});
+  var ks=Object.keys(days).sort().reverse();
+  if(!ks.length){box.appendChild(el("p","empty","Seus treinos aparecem aqui."));return}
+  ks.forEach(function(k){
+    var h=el("div","hist"),b=el("button",null,label(k));
+    b.onclick=function(){sel=k;var d=parse(k);vy=d.getFullYear();vm=d.getMonth();render();window.scrollTo(0,0)};
+    h.appendChild(b);
+    days[k].sort(function(a,b){return a.ts-b.ts}).forEach(function(it){
+      h.appendChild(el("div","mu",it.name+": "+it.sets.map(fmt).join(" · ")));
+    });
+    box.appendChild(h);
+  });
+}
+function renderNames(){
+  var dl=document.getElementById("ex");dl.innerHTML="";var seen={};
+  items.forEach(function(i){if(!seen[i.name]){seen[i.name]=1;var o=document.createElement("option");o.value=i.name;dl.appendChild(o)}});
+}
+function render(){renderCal();renderDay();renderHist();renderNames()}
+
+document.getElementById("prev").onclick=function(){vm--;if(vm<0){vm=11;vy--}renderCal()};
+document.getElementById("next").onclick=function(){vm++;if(vm>11){vm=0;vy++}renderCal()};
+document.getElementById("addrow").onclick=function(){
+  var l=draft[draft.length-1];draft.push({r:l.r,w:l.w});renderRows();
+};
+document.getElementById("save").onclick=function(){
+  var n=document.getElementById("n"),name=n.value.trim();
+  var sets=draft.filter(function(s){return s.r!==""}).map(function(s){return{r:+s.r,w:s.w===""?"":+s.w}});
+  if(!name||!sets.length){n.focus();return}
+  items.push({id:Date.now()+Math.random(),ts:Date.now(),date:sel,name:name,sets:sets});
+  save();n.value="";draft=[{r:"",w:""}];renderRows();render();
+};
+renderRows();render();
+if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})}
+</script>
+</body>
+</html>
