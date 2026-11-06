@@ -64,6 +64,15 @@ input::placeholder{color:var(--dim)}
 .st{display:grid;grid-template-columns:repeat(3,1fr);text-align:center}
 .st b{display:block;font-size:22px}.st span{color:var(--mu);font-size:12px}
 svg.ch{width:100%;height:auto;display:block;margin-top:12px;color:var(--tx)}
+.gl{color:var(--mu);font-size:13px;margin-bottom:4px}
+.gsel{width:auto;padding:6px 10px;font-size:13px;margin-top:6px;border-radius:10px}
+.gh{color:var(--mu);font-size:13px;margin-bottom:10px}
+.grow{display:grid;grid-template-columns:96px 1fr 38px;gap:10px;align-items:center;margin:8px 0;font-size:14px}
+.grow b{text-align:right;font-variant-numeric:tabular-nums}
+.grow.z{opacity:.4}
+.bar{position:relative;height:8px;background:var(--ln);border-radius:4px}
+.bar i{display:block;height:100%;background:var(--tx);border-radius:4px}
+.bar u{position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--bd2)}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(88px + env(safe-area-inset-bottom));background:var(--tx);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:600;font-size:14px;display:none;z-index:9}
 </style>
 <script>try{if(localStorage.getItem("treino:tema")==="light"){document.documentElement.dataset.theme="light";var m=document.querySelector('meta[name="theme-color"]');if(m)m.content="#ffffff"}}catch(e){}</script>
@@ -79,6 +88,10 @@ svg.ch{width:100%;height:auto;display:block;margin-top:12px;color:var(--tx)}
   <div class="sum" id="sum"></div>
   <div id="day"></div>
 
+  <h2>Séries por músculo</h2>
+  <div class="chips" id="gm" style="margin-bottom:10px"><button data-m="dia" class="on">Dia</button><button data-m="sem">Semana</button></div>
+  <div class="card" id="gbox"></div>
+
   <h2>Descanso</h2>
   <div class="card">
     <div id="tmr">0:00</div>
@@ -89,6 +102,8 @@ svg.ch{width:100%;height:auto;display:block;margin-top:12px;color:var(--tx)}
   <input id="n" list="ex" placeholder="Exercício (ex.: supino máquina)" autocomplete="off">
   <datalist id="ex"></datalist>
   <div class="hint" id="hint"></div>
+  <div class="hint" id="gh"></div>
+  <select id="gsel" style="margin-top:10px"></select>
   <button class="btn" id="rep" style="display:none">Repetir último treino</button>
   <div id="rows"></div>
   <button class="btn" id="addrow">+ Série</button>
@@ -114,7 +129,7 @@ svg.ch{width:100%;height:auto;display:block;margin-top:12px;color:var(--tx)}
   <input type="file" id="imp" accept="application/json,.json" style="display:none">
   <h2>Dados</h2>
   <button class="btn" id="clr">Apagar todos os treinos</button>
-  <p class="mu" style="font-size:13px;margin-top:24px">Treino · versão 3</p>
+  <p class="mu" style="font-size:13px;margin-top:24px">Treino · versão 4</p>
 </section>
 </main>
 
@@ -169,9 +184,9 @@ function renderCal(){
 function renderDay(){
   $("dt").textContent=label(sel);
   var box=$("day");box.innerHTML="";
-  var list=items.filter(function(i){return i.date===sel}).sort(function(a,b){return a.ts-b.ts}),ns=0,vol=0;
-  list.forEach(function(i){ns+=i.sets.length;i.sets.forEach(function(s){vol+=(+s.r||0)*(+s.w||0)})});
-  $("sum").textContent=list.length?list.length+(list.length>1?" exercícios":" exercício")+" · "+ns+" séries"+(vol?" · "+Math.round(vol).toLocaleString("pt-BR")+" kg de volume":""):"";
+  var list=items.filter(function(i){return i.date===sel}).sort(function(a,b){return a.ts-b.ts}),ns=0;
+  list.forEach(function(i){ns+=i.sets.length});
+  $("sum").textContent=list.length?list.length+(list.length>1?" exercícios":" exercício")+" · "+ns+" séries":"";
   if(!list.length){box.appendChild(el("p","empty","Nenhum exercício neste dia."));return}
   list.forEach(function(it){
     var c=el("div","card"),t=el("div","card-t"),nm=el("span",null,it.name);
@@ -179,6 +194,9 @@ function renderDay(){
     var x=el("button","x","×");x.setAttribute("aria-label","Apagar");
     x.onclick=function(){if(confirm("Apagar "+it.name+"?")){items=items.filter(function(i){return i.id!==it.id});save();render()}};
     t.appendChild(nm);t.appendChild(x);c.appendChild(t);
+    var gi=grp(it);
+    if(gi.p)c.appendChild(el("div","gl",desc(gi)));
+    else{var sl=document.createElement("select");sl.className="gsel";sl.innerHTML='<option value="">Definir músculo…</option>'+GR.map(function(g){return"<option>"+g+"</option>"}).join("");sl.onchange=function(){it.g=this.value;save();render()};c.appendChild(sl)}
     it.sets.forEach(function(s,i){c.appendChild(el("div","ln",fmt(s,i)))});
     if(it.note)c.appendChild(el("div","note",it.note));
     box.appendChild(c)})
@@ -233,7 +251,53 @@ function renderEv(){
   box.appendChild(card);
   ses.slice().reverse().forEach(function(it){box.appendChild(el("div","hist",short(it.date)+" · "+it.sets.map(fmt).join(" · ")+(it.note?" — "+it.note:"")))})
 }
-function render(){renderCal();renderDay();renderHist();renderNames();renderEv()}
+var SEC=0.5,gmode="dia",GR=["Peito","Costas","Ombros","Bíceps","Tríceps","Quadríceps","Posterior","Glúteos","Panturrilha","Abdômen"];
+var MAP=[
+ ["crucifixo inverso|voador inverso|face pull|elevacao posterior|ombro posterior|remada alta","Ombros",[]],
+ ["crucifixo|voador|peck|crossover|cross over|fly","Peito",[]],
+ ["supino|flexao|chest press|peitoral|peito","Peito",["Tríceps","Ombros"]],
+ ["elevacao lateral|elevacao frontal|lateral raise","Ombros",[]],
+ ["desenvolvimento|militar|shoulder press|arnold","Ombros",["Tríceps"]],
+ ["triceps|frances|testa|mergulho","Tríceps",[]],
+ ["flexora|leg curl","Posterior",[]],
+ ["stiff|romeno|terra","Posterior",["Glúteos"]],
+ ["rosca|biceps|curl|martelo","Bíceps",[]],
+ ["encolhimento|shrug|trapezio","Costas",[]],
+ ["remada|puxada|puxador|barra fixa|pull|serrote","Costas",["Bíceps"]],
+ ["agachamento|leg press|hack|afundo|passada|avanco|bulgaro|squat","Quadríceps",["Glúteos"]],
+ ["extensora","Quadríceps",[]],
+ ["elevacao pelvica|hip thrust|gluteo|abdutora|coice","Glúteos",[]],
+ ["panturrilha|gemeos|calf","Panturrilha",[]],
+ ["abdominal|prancha|crunch|abdomen|infra","Abdômen",[]]
+];
+function norm(s){return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"")}
+function detect(n){var t=norm(n);for(var i=0;i<MAP.length;i++){var k=MAP[i][0].split("|");for(var j=0;j<k.length;j++)if(t.indexOf(k[j])>=0)return{p:MAP[i][1],s:MAP[i][2]}}return null}
+function grp(it){var d=detect(it.name);
+  if(it.g)return{p:it.g,s:(d&&d.p===it.g)?d.s:[]};
+  return d||{p:"",s:[]}}
+function fm(v){return String(Math.round(v*10)/10).replace(".",",")}
+function desc(g,num){return[g.p+(num?" 1":"")].concat(g.s.map(function(x){return x+(num?" "+fm(SEC):" ½")})).join(" · ")}
+function counts(list){var c={};GR.forEach(function(g){c[g]=0});
+  list.forEach(function(it){var g=grp(it),n=it.sets.length;if(g.p)c[g.p]+=n;g.s.forEach(function(x){c[x]+=n*SEC})});return c}
+function weekRange(k){var d=parse(k),w=(d.getDay()+6)%7,a=new Date(d.getFullYear(),d.getMonth(),d.getDate()-w),b=new Date(a.getFullYear(),a.getMonth(),a.getDate()+6);
+  return[key(a.getFullYear(),a.getMonth(),a.getDate()),key(b.getFullYear(),b.getMonth(),b.getDate())]}
+function renderG(){
+  var box=$("gbox");box.innerHTML="";var sem=gmode==="sem",r=weekRange(sel);
+  var list=items.filter(function(i){return sem?(i.date>=r[0]&&i.date<=r[1]):i.date===sel}),c=counts(list);
+  var un=list.filter(function(i){return!grp(i).p}).map(function(i){return i.name});
+  box.appendChild(el("div","gh",sem?"Semana de "+short(r[0])+" a "+short(r[1])+". Referência: 10 a 20 séries por músculo.":"Séries do dia "+short(sel)+"."));
+  var mxv=sem?20:Math.max(6,Math.max.apply(null,GR.map(function(g){return c[g]})));
+  GR.map(function(g,i){return{g:g,v:c[g],i:i}}).sort(function(a,b){return b.v-a.v||a.i-b.i}).forEach(function(o){
+    var row=el("div","grow"+(o.v?"":" z"));row.appendChild(el("span",null,o.g));
+    var bar=el("div","bar"),f=document.createElement("i");f.style.width=Math.min(100,o.v/mxv*100)+"%";bar.appendChild(f);
+    if(sem)bar.appendChild(document.createElement("u"));
+    row.appendChild(bar);row.appendChild(el("b",null,fm(o.v)));box.appendChild(row)});
+  if(un.length)box.appendChild(el("div","note","Sem músculo definido: "+un.join(", ")))}
+function updG(){var n=$("n").value.trim(),h=$("gh");
+  if(!n){h.textContent="";return}
+  var g=grp({name:n,g:$("gsel").value});
+  h.textContent=g.p?"Cada série conta como: "+desc(g,true):"Não reconheci o exercício. Escolha o músculo abaixo."}
+function render(){renderCal();renderDay();renderG();renderHist();renderNames();renderEv()}
 
 var tm=null,left=0;
 function showT(){$("tmr").textContent=left>0?Math.floor(left/60)+":"+pad(left%60):"Pronto!"}
@@ -244,7 +308,8 @@ $("stop").onclick=function(){clearInterval(tm);left=0;$("tmr").textContent="0:00
 
 $("prev").onclick=function(){vm--;if(vm<0){vm=11;vy--}renderCal()};
 $("next").onclick=function(){vm++;if(vm>11){vm=0;vy++}renderCal()};
-$("n").oninput=hint;
+$("n").oninput=function(){hint();updG()};
+$("gsel").onchange=updG;
 $("rep").onclick=function(){if(lastRef){draft=lastRef.sets.map(function(s){return{r:s.r,w:s.w}});renderRows()}};
 $("evsel").onchange=renderEv;
 $("addrow").onclick=function(){var l=draft[draft.length-1];draft.push({r:l.r,w:l.w});renderRows()};
@@ -252,9 +317,9 @@ $("save").onclick=function(){
   var n=$("n"),name=n.value.trim();
   var sets=draft.filter(function(s){return s.r!==""}).map(function(s){return{r:+s.r,w:s.w===""?"":+s.w}});
   if(!name||!sets.length){toast("Informe o exercício e as repetições");n.focus();return}
-  items.push({id:Date.now()+Math.random(),ts:Date.now(),date:sel,name:name,sets:sets,note:$("nt").value.trim()});
-  save();var pr=isPR(items[items.length-1]);n.value="";$("nt").value="";draft=[{r:"",w:""}];renderRows();hint();render();
-  toast(pr?"Novo recorde de carga!":"Exercício salvo")};
+  var ni={id:Date.now()+Math.random(),ts:Date.now(),date:sel,name:name,sets:sets,note:$("nt").value.trim()};if($("gsel").value)ni.g=$("gsel").value;items.push(ni);
+  save();var pr=isPR(items[items.length-1]);n.value="";$("nt").value="";$("gsel").value="";draft=[{r:"",w:""}];renderRows();hint();updG();render();
+  toast(pr?"Novo recorde de carga!":(grp(ni).p?"Exercício salvo":"Salvo. Defina o músculo no exercício para contar as séries"))};
 
 $("exp").onclick=function(){
   var b=new Blob([JSON.stringify(items)],{type:"application/json"}),a=document.createElement("a");
@@ -280,6 +345,8 @@ $("th-light").onclick=function(){setTheme("light")};
 var th="dark";try{if(localStorage.getItem("treino:tema")==="light")th="light"}catch(e){}
 setTheme(th);
 
+$("gsel").innerHTML='<option value="">Músculo: automático</option>'+GR.map(function(g){return"<option>"+g+"</option>"}).join("");
+document.querySelectorAll("#gm button").forEach(function(b){b.onclick=function(){gmode=b.dataset.m;document.querySelectorAll("#gm button").forEach(function(x){x.classList.toggle("on",x===b)});renderG()}});
 renderRows();render();
 if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})}
 </script>
