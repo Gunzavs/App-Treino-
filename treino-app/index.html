@@ -74,6 +74,9 @@ svg.ch{width:100%;height:auto;display:block;margin-top:12px;color:var(--tx)}
 .bar{position:relative;height:8px;background:var(--ln);border-radius:4px}
 .bar i{display:block;height:100%;background:var(--tx);border-radius:4px}
 .bar u{position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--bd2)}
+.dayh{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:28px 0 10px}
+.dayh h2{margin:0}
+.tg{background:none;border:1px solid var(--bd);border-radius:10px;padding:6px 10px;font-size:13px;font-weight:600;white-space:nowrap}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(88px + env(safe-area-inset-bottom));background:var(--tx);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:600;font-size:14px;display:none;z-index:9}
 </style>
 <script>try{var t=localStorage.getItem("treino:tema");if(t==="light"||t==="gray"){document.documentElement.dataset.theme=t;var m=document.querySelector('meta[name="theme-color"]');if(m)m.content=t==="light"?"#ffffff":"#2a2a2c"}}catch(e){}</script>
@@ -83,21 +86,19 @@ svg.ch{width:100%;height:auto;display:block;margin-top:12px;color:var(--tx)}
 <header><img src="icon-192.png" alt=""><b>Treino</b></header>
 
 <section class="tab on" id="t-treino">
-  <div class="cal-h"><button class="nav" id="prev" aria-label="Mês anterior">‹</button><b id="mt"></b><button class="nav" id="next" aria-label="Próximo mês">›</button></div>
-  <div class="grid" id="cal"></div>
-  <h2 id="dt"></h2>
-  <div class="sum" id="sum"></div>
-  <div id="day"></div>
-
-  <h2>Séries por músculo</h2>
-  <div class="chips" id="gm" style="margin-bottom:10px"><button data-m="dia" class="on">Dia</button><button data-m="sem">Semana</button></div>
-  <div class="card" id="gbox"></div>
-
-  <h2>Descanso</h2>
+  <h2 style="margin-top:4px">Descanso</h2>
   <div class="card">
     <div id="tmr">0:00</div>
     <div class="chips"><button data-s="60">1 min</button><button data-s="90">1:30</button><button data-s="120">2 min</button><button id="stop">Parar</button></div>
   </div>
+
+  <div style="height:22px"></div>
+  <div class="cal-h"><button class="nav" id="prev" aria-label="Mês anterior">‹</button><b id="mt"></b><button class="nav" id="next" aria-label="Próximo mês">›</button></div>
+  <div class="grid" id="cal"></div>
+
+  <h2>Séries por músculo</h2>
+  <div class="chips" id="gm" style="margin-bottom:10px"><button data-m="dia" class="on">Dia</button><button data-m="sem">Semana</button></div>
+  <div class="card" id="gbox"></div>
 
   <h2>Novo exercício</h2>
   <input id="n" list="ex" placeholder="Exercício (ex.: supino máquina)" autocomplete="off">
@@ -110,6 +111,10 @@ svg.ch{width:100%;height:auto;display:block;margin-top:12px;color:var(--tx)}
   <button class="btn" id="addrow">+ Série</button>
   <input id="nt" placeholder="Observação (ex.: senti o ombro, banco na posição 3)" autocomplete="off" style="margin-top:10px">
   <button class="btn pri" id="save">Salvar exercício</button>
+
+  <div class="dayh"><h2 id="dt"></h2><button class="tg" id="tgl">Ocultar exercícios</button></div>
+  <div class="sum" id="sum"></div>
+  <div id="day"></div>
 </section>
 
 <section class="tab" id="t-hist"><h2 style="margin-top:4px">Histórico</h2><div id="hist"></div></section>
@@ -130,7 +135,7 @@ svg.ch{width:100%;height:auto;display:block;margin-top:12px;color:var(--tx)}
   <input type="file" id="imp" accept="application/json,.json" style="display:none">
   <h2>Dados</h2>
   <button class="btn" id="clr">Apagar todos os treinos</button>
-  <p class="mu" style="font-size:13px;margin-top:24px">Treino · versão 5</p>
+  <p class="mu" style="font-size:13px;margin-top:24px">Treino · versão 6</p>
 </section>
 </main>
 
@@ -153,6 +158,7 @@ function key(y,m,d){return y+"-"+pad(m+1)+"-"+pad(d)}
 function parse(k){var p=k.split("-");return new Date(+p[0],+p[1]-1,+p[2])}
 function short(k){var p=k.split("-");return p[2]+"/"+p[1]}
 var now=new Date(),TODAY=key(now.getFullYear(),now.getMonth(),now.getDate());
+var showEx=true;try{showEx=localStorage.getItem("treino:ex")!=="0"}catch(e){}
 var sel=TODAY,vy=now.getFullYear(),vm=now.getMonth(),draft=[{r:"",w:""}],lastRef=null;
 function label(k){var t=parse(k).toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"});return(k===TODAY?"Hoje · ":"")+t}
 function fmt(s,i){return(i+1)+"x"+s.r+(s.w!==""&&s.w!=null?" "+s.w+"kg":"")}
@@ -188,6 +194,8 @@ function renderDay(){
   var list=items.filter(function(i){return i.date===sel}).sort(function(a,b){return a.ts-b.ts}),ns=0;
   list.forEach(function(i){ns+=i.sets.length});
   $("sum").textContent=list.length?list.length+(list.length>1?" exercícios":" exercício")+" · "+ns+" séries":"";
+  $("tgl").textContent=showEx?"Ocultar exercícios":"Mostrar exercícios";$("tgl").style.display=list.length?"":"none";
+  if(!showEx&&list.length)return;
   if(!list.length){box.appendChild(el("p","empty","Nenhum exercício neste dia."));return}
   list.forEach(function(it){
     var c=el("div","card"),t=el("div","card-t"),nm=el("span",null,it.name);
@@ -300,12 +308,17 @@ function updG(){var n=$("n").value.trim(),h=$("gh");
   h.textContent=g.p?"Cada série conta como: "+desc(g,true):"Não reconheci o exercício. Escolha o músculo abaixo."}
 function render(){renderCal();renderDay();renderG();renderHist();renderNames();renderEv()}
 
-var tm=null,left=0;
-function showT(){$("tmr").textContent=left>0?Math.floor(left/60)+":"+pad(left%60):"Pronto!"}
-function rest(sec){clearInterval(tm);left=sec;showT();
-  tm=setInterval(function(){left--;showT();if(left<=0){clearInterval(tm);try{navigator.vibrate&&navigator.vibrate([300,150,300])}catch(e){}}},1000)}
+var tm=null,endAt=0;
+function tick(){
+  var left=Math.ceil((endAt-Date.now())/1000);
+  if(left>0){$("tmr").textContent=Math.floor(left/60)+":"+pad(left%60);return}
+  clearInterval(tm);tm=null;endAt=0;try{localStorage.removeItem("treino:endAt")}catch(e){}
+  $("tmr").textContent="Pronto!";try{navigator.vibrate&&navigator.vibrate([300,150,300])}catch(e){}}
+function rest(sec){clearInterval(tm);endAt=Date.now()+sec*1000;try{localStorage.setItem("treino:endAt",endAt)}catch(e){}tick();tm=setInterval(tick,250)}
+document.addEventListener("visibilitychange",function(){if(endAt)tick()});
 document.querySelectorAll(".chips button[data-s]").forEach(function(b){b.onclick=function(){rest(+b.dataset.s)}});
-$("stop").onclick=function(){clearInterval(tm);left=0;$("tmr").textContent="0:00"};
+$("stop").onclick=function(){clearInterval(tm);tm=null;endAt=0;try{localStorage.removeItem("treino:endAt")}catch(e){}$("tmr").textContent="0:00"};
+try{var ra=+localStorage.getItem("treino:endAt");if(ra>Date.now()){endAt=ra;tick();tm=setInterval(tick,250)}}catch(e){}
 
 $("prev").onclick=function(){vm--;if(vm<0){vm=11;vy--}renderCal()};
 $("next").onclick=function(){vm++;if(vm>11){vm=0;vy++}renderCal()};
@@ -313,6 +326,7 @@ $("n").oninput=function(){hint();updG()};
 $("gsel").onchange=updG;
 $("rep").onclick=function(){if(lastRef){draft=lastRef.sets.map(function(s){return{r:s.r,w:s.w}});renderRows()}};
 $("evsel").onchange=renderEv;
+$("tgl").onclick=function(){showEx=!showEx;try{localStorage.setItem("treino:ex",showEx?"1":"0")}catch(e){}renderDay()};
 $("addrow").onclick=function(){var l=draft[draft.length-1];draft.push({r:l.r,w:l.w});renderRows()};
 $("save").onclick=function(){
   var n=$("n"),name=n.value.trim();
