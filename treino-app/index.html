@@ -14,6 +14,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
 :root{color-scheme:dark;--bg:#000;--tx:#f5f5f5;--c:#0c0c0c;--ln:#1f1f1f;--mu:#8c8c8c;--bd:#2a2a2a;--bd2:#555;--in:#050505;--dim:#666;--ln2:#ddd;--nb:rgba(0,0,0,.94)}
+:root[data-theme="gray"]{color-scheme:dark;--bg:#2a2a2c;--tx:#f2f2f2;--c:#343437;--ln:#444447;--mu:#a2a2a7;--bd:#515155;--bd2:#7a7a7e;--in:#232325;--dim:#8a8a8e;--ln2:#e6e6e6;--nb:rgba(42,42,44,.96)}
 :root[data-theme="light"]{color-scheme:light;--bg:#fff;--tx:#0a0a0a;--c:#f5f5f5;--ln:#e6e6e6;--mu:#6b6b6b;--bd:#d2d2d2;--bd2:#aaa;--in:#fff;--dim:#9a9a9a;--ln2:#222;--nb:rgba(255,255,255,.94)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg)}
@@ -75,7 +76,7 @@ svg.ch{width:100%;height:auto;display:block;margin-top:12px;color:var(--tx)}
 .bar u{position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--bd2)}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(88px + env(safe-area-inset-bottom));background:var(--tx);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:600;font-size:14px;display:none;z-index:9}
 </style>
-<script>try{if(localStorage.getItem("treino:tema")==="light"){document.documentElement.dataset.theme="light";var m=document.querySelector('meta[name="theme-color"]');if(m)m.content="#ffffff"}}catch(e){}</script>
+<script>try{var t=localStorage.getItem("treino:tema");if(t==="light"||t==="gray"){document.documentElement.dataset.theme=t;var m=document.querySelector('meta[name="theme-color"]');if(m)m.content=t==="light"?"#ffffff":"#2a2a2c"}}catch(e){}</script>
 </head>
 <body>
 <main>
@@ -121,7 +122,7 @@ svg.ch{width:100%;height:auto;display:block;margin-top:12px;color:var(--tx)}
 
 <section class="tab" id="t-aj">
   <h2 style="margin-top:4px">Aparência</h2>
-  <div class="chips"><button id="th-dark">Escuro</button><button id="th-light">Claro</button></div>
+  <div class="chips"><button id="th-dark">Escuro</button><button id="th-gray">Cinza</button><button id="th-light">Claro</button></div>
   <h2>Backup</h2>
   <p class="mu" style="margin-top:0">Seus treinos ficam salvos neste celular. Faça um backup de vez em quando para não perder nada.</p>
   <button class="btn" id="exp">Exportar backup</button>
@@ -129,7 +130,7 @@ svg.ch{width:100%;height:auto;display:block;margin-top:12px;color:var(--tx)}
   <input type="file" id="imp" accept="application/json,.json" style="display:none">
   <h2>Dados</h2>
   <button class="btn" id="clr">Apagar todos os treinos</button>
-  <p class="mu" style="font-size:13px;margin-top:24px">Treino · versão 4</p>
+  <p class="mu" style="font-size:13px;margin-top:24px">Treino · versão 5</p>
 </section>
 </main>
 
@@ -338,11 +339,10 @@ $("clr").onclick=function(){if(confirm("Apagar todos os treinos? Isso não pode 
 function setTheme(t){
   document.documentElement.dataset.theme=t;
   try{localStorage.setItem("treino:tema",t)}catch(e){}
-  var m=document.querySelector('meta[name="theme-color"]');if(m)m.content=t==="light"?"#ffffff":"#000000";
-  $("th-dark").classList.toggle("on",t!=="light");$("th-light").classList.toggle("on",t==="light")}
-$("th-dark").onclick=function(){setTheme("dark")};
-$("th-light").onclick=function(){setTheme("light")};
-var th="dark";try{if(localStorage.getItem("treino:tema")==="light")th="light"}catch(e){}
+  var m=document.querySelector('meta[name="theme-color"]');if(m)m.content=t==="light"?"#ffffff":t==="gray"?"#2a2a2c":"#000000";
+  ["dark","gray","light"].forEach(function(k){$("th-"+k).classList.toggle("on",k===t)})}
+["dark","gray","light"].forEach(function(k){$("th-"+k).onclick=function(){setTheme(k)}});
+var th="dark";try{var sv=localStorage.getItem("treino:tema");if(sv==="light"||sv==="gray")th=sv}catch(e){}
 setTheme(th);
 
 $("gsel").innerHTML='<option value="">Músculo: automático</option>'+GR.map(function(g){return"<option>"+g+"</option>"}).join("");
