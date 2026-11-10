@@ -137,7 +137,7 @@ svg.ch{width:100%;height:auto;display:block;margin-top:12px;color:var(--tx)}
   <input type="file" id="imp" accept="application/json,.json" style="display:none">
   <h2>Dados</h2>
   <button class="btn" id="clr">Apagar todos os treinos</button>
-  <p class="mu" style="font-size:13px;margin-top:24px">Treino · versão 8</p>
+  <p class="mu" style="font-size:13px;margin-top:24px">Treino · versão 9</p>
 </section>
 </main>
 
@@ -188,7 +188,7 @@ function renderCal(){
   for(var b=0;b<first;b++)g.appendChild(el("div"));
   for(var d=1;d<=days;d++){(function(d){
     var k=key(vy,vm,d),btn=el("button","d"+(k===sel?" sel":"")+(k===TODAY?" today":"")+(has[k]?" has":""),d);
-    btn.onclick=function(){sel=k;render()};g.appendChild(btn)})(d)}
+    btn.onclick=function(){sel=k;render();saveDraft()};g.appendChild(btn)})(d)}
 }
 function renderDay(){
   $("dt").textContent=label(sel);
@@ -216,10 +216,10 @@ function renderRows(){
   var box=$("rows");box.innerHTML="";
   draft.forEach(function(s,i){
     var row=el("div","srow");row.appendChild(el("span",null,(i+1)+"x"));
-    var r=el("input");r.type="number";r.inputMode="numeric";r.placeholder="Reps";r.value=s.r;r.oninput=function(){s.r=r.value};
-    var w=el("input");w.type="number";w.inputMode="decimal";w.step="any";w.placeholder="kg";w.value=s.w;w.oninput=function(){s.w=w.value};
+    var r=el("input");r.type="number";r.inputMode="numeric";r.placeholder="Reps";r.value=s.r;r.oninput=function(){s.r=r.value;saveDraft()};
+    var w=el("input");w.type="number";w.inputMode="decimal";w.step="any";w.placeholder="kg";w.value=s.w;w.oninput=function(){s.w=w.value;saveDraft()};
     row.appendChild(r);row.appendChild(w);
-    if(draft.length>1){var x=el("button","x","×");x.onclick=function(){draft.splice(i,1);renderRows()};row.appendChild(x)}else row.appendChild(el("span"));
+    if(draft.length>1){var x=el("button","x","×");x.onclick=function(){draft.splice(i,1);renderRows();saveDraft()};row.appendChild(x)}else row.appendChild(el("span"));
     box.appendChild(row)})
 }
 function hint(){
@@ -233,7 +233,7 @@ function renderHist(){
   if(!ks.length){box.appendChild(el("p","empty","Seus treinos aparecem aqui."));return}
   ks.forEach(function(k){
     var h=el("div","hist"),b=el("button",null,label(k));
-    b.onclick=function(){sel=k;var d=parse(k);vy=d.getFullYear();vm=d.getMonth();render();go("treino")};
+    b.onclick=function(){sel=k;var d=parse(k);vy=d.getFullYear();vm=d.getMonth();render();saveDraft();go("treino")};
     h.appendChild(b);
     days[k].sort(function(a,b){return a.ts-b.ts}).forEach(function(it){h.appendChild(el("div","mu",it.name+": "+it.sets.map(fmt).join(" · ")+(it.note?" — "+it.note:"")))});
     box.appendChild(h)})
@@ -324,18 +324,19 @@ try{var ra=+localStorage.getItem("treino:endAt");if(ra>Date.now()){endAt=ra;tick
 
 $("prev").onclick=function(){vm--;if(vm<0){vm=11;vy--}renderCal()};
 $("next").onclick=function(){vm++;if(vm>11){vm=0;vy++}renderCal()};
-$("n").oninput=function(){hint();updG()};
-$("gsel").onchange=updG;
-$("rep").onclick=function(){if(lastRef){draft=lastRef.sets.map(function(s){return{r:s.r,w:s.w}});renderRows()}};
+$("n").oninput=function(){hint();updG();saveDraft()};
+$("nt").oninput=saveDraft;
+$("gsel").onchange=function(){updG();saveDraft()};
+$("rep").onclick=function(){if(lastRef){draft=lastRef.sets.map(function(s){return{r:s.r,w:s.w}});renderRows();saveDraft()}};
 $("evsel").onchange=renderEv;
 $("tgl").onclick=function(){showEx=!showEx;try{localStorage.setItem("treino:ex",showEx?"1":"0")}catch(e){}renderDay()};
-$("addrow").onclick=function(){var l=draft[draft.length-1];draft.push({r:l.r,w:l.w});renderRows()};
+$("addrow").onclick=function(){var l=draft[draft.length-1];draft.push({r:l.r,w:l.w});renderRows();saveDraft()};
 $("save").onclick=function(){
   var n=$("n"),name=n.value.trim();
   var sets=draft.filter(function(s){return s.r!==""}).map(function(s){return{r:+s.r,w:s.w===""?"":+s.w}});
   if(!name||!sets.length){toast("Informe o exercício e as repetições");n.focus();return}
   var ni={id:Date.now()+Math.random(),ts:Date.now(),date:sel,name:name,sets:sets,note:$("nt").value.trim()};if($("gsel").value)ni.g=$("gsel").value;items.push(ni);
-  save();var pr=isPR(items[items.length-1]);n.value="";$("nt").value="";$("gsel").value="";draft=[{r:"",w:""}];renderRows();hint();updG();render();
+  save();var pr=isPR(items[items.length-1]);n.value="";$("nt").value="";$("gsel").value="";draft=[{r:"",w:""}];renderRows();hint();updG();saveDraft();render();
   toast(pr?"Novo recorde de carga!":(grp(ni).p?"Exercício salvo":"Salvo. Defina o músculo no exercício para contar as séries"))};
 
 $("exp").onclick=function(){
@@ -365,7 +366,22 @@ setTheme(th);
 
 $("gsel").innerHTML='<option value="">Músculo: automático</option>'+GR.map(function(g){return"<option>"+g+"</option>"}).join("");
 document.querySelectorAll("#gm button").forEach(function(b){b.onclick=function(){gmode=b.dataset.m;document.querySelectorAll("#gm button").forEach(function(x){x.classList.toggle("on",x===b)});renderG()}});
+var DK="treino:rascunho";
+function saveDraft(){try{
+  var n=$("n").value,nt=$("nt").value,g=$("gsel").value;
+  var has=n.trim()||nt.trim()||draft.some(function(s){return s.r!==""||s.w!==""});
+  if(has)localStorage.setItem(DK,JSON.stringify({n:n,nt:nt,g:g,rows:draft,date:sel}));else localStorage.removeItem(DK)}catch(e){}}
+document.addEventListener("visibilitychange",function(){if(document.hidden)saveDraft()});
+window.addEventListener("pagehide",saveDraft);
+var rec=false;
+try{var dr=JSON.parse(localStorage.getItem(DK)||"null");
+  if(dr&&typeof dr==="object"){
+    $("n").value=dr.n||"";$("nt").value=dr.nt||"";$("gsel").value=dr.g||"";
+    if(Array.isArray(dr.rows)&&dr.rows.length)draft=dr.rows.map(function(s){return{r:s.r==null?"":s.r,w:s.w==null?"":s.w}});
+    if(dr.date){sel=dr.date;var dd=parse(dr.date);vy=dd.getFullYear();vm=dd.getMonth()}
+    rec=true}}catch(e){}
 renderRows();render();
+if(rec){hint();updG();toast("Exercício em andamento recuperado")}
 if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})}
 </script>
 </body>
