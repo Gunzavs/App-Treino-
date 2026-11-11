@@ -1,4 +1,4 @@
-var C="treino-v13";
+var C="treino-v14";
 var F=["./","index.html","manifest.webmanifest","icon-192.png","icon-512.png"];
 self.addEventListener("install",function(e){
   e.waitUntil(caches.open(C).then(function(c){

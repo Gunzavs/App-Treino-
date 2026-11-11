@@ -79,6 +79,12 @@ svg.ch{width:100%;height:auto;display:block;margin-top:12px;color:var(--tx)}
 .dayh{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:28px 0 10px}
 .dayh h2{margin:0}
 .tg{background:none;border:1px solid var(--bd);border-radius:10px;padding:6px 10px;font-size:13px;font-weight:600;white-space:nowrap}
+.frow{display:flex;align-items:center;gap:8px;margin-top:8px}
+.frow select{flex:1}
+.fx{margin-top:0}
+.fn{flex:1;background:none;border:0;text-align:left;padding:10px 0;font-weight:600}
+.dn .fn{color:var(--mu);font-weight:400}
+a.tg{color:var(--tx);text-decoration:none;display:inline-block}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(88px + env(safe-area-inset-bottom));background:var(--tx);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:600;font-size:14px;display:none;z-index:9}
 </style>
 <script>try{var t=localStorage.getItem("treino:tema");if(t==="light"||t==="gray"){document.documentElement.dataset.theme=t;var m=document.querySelector('meta[name="theme-color"]');if(m)m.content=t==="light"?"#ffffff":"#2a2a2c"}}catch(e){}</script>
@@ -101,6 +107,9 @@ svg.ch{width:100%;height:auto;display:block;margin-top:12px;color:var(--tx)}
   <h2>Séries por músculo</h2>
   <div class="chips" id="gm" style="margin-bottom:10px"><button data-m="dia" class="on">Dia</button><button data-m="sem">Semana</button></div>
   <div class="card" id="gbox"></div>
+
+  <h2>Ficha de treino</h2>
+  <div class="card" id="fbox"></div>
 
   <h2>Novo exercício</h2>
   <input id="n" list="ex" placeholder="Exercício (ex.: supino máquina)" autocomplete="off">
@@ -127,6 +136,13 @@ svg.ch{width:100%;height:auto;display:block;margin-top:12px;color:var(--tx)}
   <div id="evbox" style="margin-top:12px"></div>
 </section>
 
+<section class="tab" id="t-gd">
+  <h2 style="margin-top:4px">Guia de exercícios</h2>
+  <select id="gdg"></select>
+  <p class="mu" style="font-size:13px">Dicas gerais de execução. Se sentir dor na articulação, diferente do cansaço do músculo, pare e procure um profissional.</p>
+  <div id="gdl"></div>
+</section>
+
 <section class="tab" id="t-aj">
   <h2 style="margin-top:4px">Aparência</h2>
   <div class="chips"><button id="th-dark">Escuro</button><button id="th-gray">Cinza</button><button id="th-light">Claro</button></div>
@@ -137,7 +153,7 @@ svg.ch{width:100%;height:auto;display:block;margin-top:12px;color:var(--tx)}
   <input type="file" id="imp" accept="application/json,.json" style="display:none">
   <h2>Dados</h2>
   <button class="btn" id="clr">Apagar todos os treinos</button>
-  <p class="mu" style="font-size:13px;margin-top:24px">Treino · versão 9</p>
+  <p class="mu" style="font-size:13px;margin-top:24px">Treino · versão 10</p>
 </section>
 </main>
 
@@ -145,6 +161,7 @@ svg.ch{width:100%;height:auto;display:block;margin-top:12px;color:var(--tx)}
   <button class="on" data-t="treino"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Treino</button>
   <button data-t="hist"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Histórico</button>
   <button data-t="ev"><svg viewBox="0 0 24 24"><path d="M3 20h18M6 16l4-5 3 3 5-7"/></svg>Evolução</button>
+  <button data-t="gd"><svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/></svg>Guia</button>
   <button data-t="aj"><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>Ajustes</button>
 </nav>
 <div class="toast" id="toast"></div>
@@ -240,7 +257,8 @@ function renderHist(){
 }
 function renderNames(){
   var dl=$("ex");dl.innerHTML="";var seen={};
-  items.forEach(function(i){var k=i.name.trim().toLowerCase();if(!seen[k]){seen[k]=1;var o=document.createElement("option");o.value=i.name;dl.appendChild(o)}})
+  items.forEach(function(i){var k=i.name.trim().toLowerCase();if(!seen[k]){seen[k]=1;var o=document.createElement("option");o.value=i.name;dl.appendChild(o)}});
+  GUIDE.forEach(function(x){var k=x[1].toLowerCase();if(!seen[k]){seen[k]=1;var o=document.createElement("option");o.value=x[1];dl.appendChild(o)}})
 }
 function renderEv(){
   var names={};items.forEach(function(i){names[i.name.trim().toLowerCase()]=i.name.trim()});
@@ -308,7 +326,77 @@ function updG(){var n=$("n").value.trim(),h=$("gh");
   if(!n){h.textContent="";return}
   var g=grp({name:n,g:$("gsel").value});
   h.textContent=g.p?"Cada série conta como: "+desc(g,true):"Não reconheci o exercício. Escolha o músculo abaixo."}
-function render(){renderCal();renderDay();renderG();renderHist();renderNames();renderEv()}
+var GUIDE=[
+["Peito","Supino reto","Deite com os pés firmes no chão e as escápulas juntas e para trás. Desça a barra até a linha do peito, cotovelos a uns 45° do tronco, e empurre sem tirar o quadril do banco.","pense em aproximar as mãos no centro do peito ao empurrar e controle a descida em 2 a 3 segundos."],
+["Peito","Supino inclinado","Banco entre 30° e 45°. Desça até a parte alta do peito, com os punhos alinhados sobre os cotovelos, e empurre sem encolher os ombros.","mantenha os ombros longe das orelhas e foque na parte de cima do peito."],
+["Peito","Crucifixo","Cotovelos levemente flexionados e fixos. Abra até sentir o peito alongar, sem forçar o ombro, e feche em arco.","imagine abraçar uma árvore e contraia o peito por 1 segundo no fim."],
+["Peito","Flexão de braço","Corpo em linha reta, mãos um pouco mais abertas que os ombros. Desça até o peito quase tocar o chão e empurre.","aperte abdômen e glúteos e empurre o chão para longe."],
+["Costas","Puxada frontal","Peito aberto e leve inclinação para trás. Puxe a barra até a parte alta do peito.","leve os cotovelos em direção ao quadril, sem puxar só com as mãos nem balançar o tronco."],
+["Costas","Remada sentada","Tronco firme, puxe o triângulo em direção ao umbigo com os cotovelos próximos ao corpo.","junte as escápulas no fim e segure 1 segundo, sem jogar o tronco para trás."],
+["Costas","Remada curvada","Quadril para trás, coluna neutra e tronco inclinado. Puxe a barra em direção ao abdômen.","imagine puxar com os cotovelos, não com as mãos."],
+["Costas","Remada unilateral","Apoie mão e joelho no banco, coluna neutra. Puxe o halter em direção ao quadril.","leve o cotovelo ao bolso de trás e alongue bem a costas na descida."],
+["Ombros","Desenvolvimento","Sentado com apoio, empurre os halteres acima da cabeça sem arquear a lombar. Desça até a altura das orelhas.","mantenha costelas para baixo e abdômen firme."],
+["Ombros","Elevação lateral","Leve os halteres para os lados até a altura dos ombros, cotovelos levemente flexionados.","pense em levar os cotovelos para fora, não as mãos, e use carga que permita controle."],
+["Ombros","Crucifixo inverso","Incline o tronco ou use a máquina e abra os braços para trás, com os cotovelos levemente dobrados.","foque na parte de trás do ombro, sem exagerar na força das costas."],
+["Bíceps","Rosca direta","Cotovelos colados ao corpo. Suba a barra sem balançar o tronco e desça controlando.","gire levemente os punhos para fora ao subir e contraia no topo."],
+["Bíceps","Rosca martelo","Palmas voltadas uma para a outra e cotovelos fixos ao lado do corpo.","controle a descida; trabalha também o antebraço."],
+["Tríceps","Tríceps corda","Cotovelos colados ao corpo. Estenda os braços para baixo e abra a corda no final.","só o antebraço se move; aperte o tríceps embaixo."],
+["Tríceps","Tríceps testa","Deitado, cotovelos apontando para cima e fixos. Desça a barra em direção à testa e estenda.","não deixe os cotovelos abrirem e estenda por completo no topo."],
+["Tríceps","Tríceps francês","Halter atrás da cabeça, cotovelos perto das orelhas. Estenda os braços para cima.","alonga bem o tríceps; mantenha os cotovelos fechados."],
+["Quadríceps","Agachamento","Pés na largura dos ombros. Desça com o quadril para trás e os joelhos na direção dos pés, coluna neutra.","empurre o chão com o meio do pé e sinta a coxa na subida."],
+["Quadríceps","Leg press","Desça até onde a lombar continue apoiada e empurre sem travar os joelhos.","pés mais baixos na plataforma enfatizam o quadríceps."],
+["Quadríceps","Cadeira extensora","Ajuste o encosto, estenda os joelhos sem balançar e desça controlando.","segure 1 segundo no topo contraindo a coxa."],
+["Posterior","Mesa flexora","Quadril apoiado. Flexione os joelhos levando o calcanhar ao glúteo e volte controlando.","não levante o quadril e faça a descida lenta."],
+["Posterior","Stiff","Joelhos levemente flexionados. Leve o quadril para trás, coluna neutra, e desça a barra rente às pernas.","sinta o alongamento atrás da coxa e suba apertando os glúteos."],
+["Glúteos","Elevação pélvica","Costas apoiadas no banco, pés firmes. Suba o quadril até formar uma linha do ombro ao joelho.","queixo para o peito, aperte o glúteo no topo por 1 segundo e evite arquear a lombar."],
+["Panturrilha","Panturrilha em pé","Suba na ponta dos pés ao máximo e desça alongando bem, sem pressa.","pause 1 segundo em cima e embaixo; amplitude completa vale mais que carga."],
+["Abdômen","Abdominal","Lombar apoiada. Leve as costelas em direção ao quadril, sem puxar o pescoço.","expire ao subir e pense em enrolar o tronco."]
+];
+var FK="treino:fichas",fichas=[],fa=0,fedit=false;
+try{fichas=JSON.parse(localStorage.getItem(FK))||[];fa=+localStorage.getItem("treino:fa")||0}catch(e){}
+function saveF(){try{localStorage.setItem(FK,JSON.stringify(fichas));localStorage.setItem("treino:fa",fa)}catch(e){}}
+function pick(n){$("n").value=n;hint();updG();saveDraft();$("n").scrollIntoView({behavior:"smooth",block:"center"})}
+function renderF(){
+  var b=$("fbox");b.innerHTML="";if(fa>=fichas.length)fa=0;
+  var top=el("div","frow");top.style.marginTop="0";
+  if(fichas.length){var sl=document.createElement("select");
+    fichas.forEach(function(f,i){var o=document.createElement("option");o.value=i;o.textContent=f.n;sl.appendChild(o)});
+    sl.value=fa;sl.onchange=function(){fa=+sl.value;saveF();renderF()};top.appendChild(sl)}
+  var nb=el("button","tg","Nova ficha");
+  nb.onclick=function(){var n=(prompt("Nome da ficha (ex.: Peito e tríceps)")||"").trim();if(n){fichas.push({n:n,ex:[]});fa=fichas.length-1;fedit=true;saveF();renderF()}};
+  top.appendChild(nb);b.appendChild(top);
+  if(!fichas.length){b.appendChild(el("p","empty","Crie uma ficha para saber qual é o próximo exercício."));return}
+  var f=fichas[fa],done={},next=-1;
+  items.filter(function(i){return i.date===sel}).forEach(function(i){done[i.name.trim().toLowerCase()]=1});
+  f.ex.forEach(function(n,i){if(next<0&&!done[n.trim().toLowerCase()])next=i});
+  if(!f.ex.length)b.appendChild(el("p","empty","Ficha vazia. Toque em Editar ficha para adicionar exercícios."));
+  f.ex.forEach(function(n,i){
+    var d=done[n.trim().toLowerCase()],row=el("div","frow fx"+(d?" dn":""));
+    var t=el("button","fn",(d?"✓ ":"")+n);t.onclick=function(){pick(n)};row.appendChild(t);
+    if(i===next&&!fedit)row.appendChild(el("span","tag","PRÓXIMO"));
+    if(fedit)[["↑",-1],["↓",1],["×",0]].forEach(function(a){
+      var bt=el("button","x",a[0]);
+      bt.onclick=function(){if(a[1]===0)f.ex.splice(i,1);else{var j=i+a[1];if(j<0||j>=f.ex.length)return;var t2=f.ex[i];f.ex[i]=f.ex[j];f.ex[j]=t2}saveF();renderF()};
+      row.appendChild(bt)});
+    b.appendChild(row)});
+  if(fedit){
+    var ad=document.createElement("input");ad.setAttribute("list","ex");ad.placeholder="Adicionar exercício";ad.style.marginTop="10px";
+    var addEx=function(){var v=ad.value.trim();if(v){f.ex.push(v);saveF();renderF()}};
+    ad.onkeydown=function(e){if(e.key==="Enter")addEx()};b.appendChild(ad);
+    var ab=el("button","btn","Adicionar");ab.onclick=addEx;b.appendChild(ab);
+    var dl=el("button","btn","Excluir ficha");
+    dl.onclick=function(){if(confirm("Excluir a ficha "+f.n+"?")){fichas.splice(fa,1);fa=0;fedit=false;saveF();renderF()}};b.appendChild(dl)}
+  var eb=el("button","tg",fedit?"Concluir edição":"Editar ficha");eb.style.marginTop="10px";
+  eb.onclick=function(){fedit=!fedit;renderF()};b.appendChild(eb)}
+function renderGd(){
+  var g=$("gdg").value,box=$("gdl");box.innerHTML="";
+  GUIDE.filter(function(x){return x[0]===g}).forEach(function(x){
+    var c=el("div","card");c.appendChild(el("div","card-t",x[1]));c.appendChild(el("div","ln",x[2]));
+    var n=el("div","note");n.appendChild(el("b",null,"Para sentir mais: "));n.appendChild(document.createTextNode(x[3]));c.appendChild(n);
+    var r=el("div","frow"),u=el("button","tg","Usar no treino");u.onclick=function(){go("treino");pick(x[1])};
+    var v=el("a","tg","Ver vídeo");v.href="https://www.youtube.com/results?search_query="+encodeURIComponent("como fazer "+x[1]+" execução correta");v.target="_blank";v.rel="noopener";
+    r.appendChild(u);r.appendChild(v);c.appendChild(r);box.appendChild(c)})}
+function render(){renderCal();renderDay();renderG();renderF();renderHist();renderNames();renderEv()}
 
 var tm=null,endAt=0;
 function tick(){
@@ -366,6 +454,7 @@ setTheme(th);
 
 $("gsel").innerHTML='<option value="">Músculo: automático</option>'+GR.map(function(g){return"<option>"+g+"</option>"}).join("");
 document.querySelectorAll("#gm button").forEach(function(b){b.onclick=function(){gmode=b.dataset.m;document.querySelectorAll("#gm button").forEach(function(x){x.classList.toggle("on",x===b)});renderG()}});
+$("gdg").innerHTML=GR.map(function(g){return"<option>"+g+"</option>"}).join("");$("gdg").onchange=renderGd;renderGd();
 var DK="treino:rascunho";
 function saveDraft(){try{
   var n=$("n").value,nt=$("nt").value,g=$("gsel").value;
